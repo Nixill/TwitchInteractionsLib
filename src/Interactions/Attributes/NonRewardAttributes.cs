@@ -1,6 +1,6 @@
 using System.Reflection;
 
-namespace Nixill.Twitch.Interactions;
+namespace Nixill.Twitch.Interactions.Attributes;
 
 /// <summary>
 ///   Marks a public, static method as being a code-based command for this

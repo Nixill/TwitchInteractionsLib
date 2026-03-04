@@ -1,7 +1,7 @@
 using System.Reflection;
 using TwitchLib.Api.Helix.Models.Channels.GetChannelInformation;
 
-namespace Nixill.Twitch.Interactions;
+namespace Nixill.Twitch.Interactions.Attributes;
 
 /// <summary>
 ///   Marks a public, static method as being a reaction to a channel

@@ -1,6 +1,7 @@
+using Nixill.Twitch.Interactions.Objects;
 using TwitchLib.Api.Helix.Models.Channels.GetChannelInformation;
 
-namespace Nixill.Twitch.Interactions;
+namespace Nixill.Twitch.Interactions.Attributes;
 
 /// <summary>
 ///   Limits the usage of a command or channel points reward method based

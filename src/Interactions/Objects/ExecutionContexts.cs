@@ -1,4 +1,6 @@
-namespace Nixill.Twitch.Interactions;
+using Nixill.Twitch.Interactions.Attributes;
+
+namespace Nixill.Twitch.Interactions.Objects;
 
 /// <summary>
 ///   Base class for all interaction contexts exposed by this library.
