@@ -1,4 +1,5 @@
 using Nixill.Twitch.Interactions.Attributes;
+using TwitchLib.EventSub.Core.Models.Chat;
 
 namespace Nixill.Twitch.Interactions.Objects;
 
