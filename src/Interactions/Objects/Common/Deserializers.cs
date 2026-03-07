@@ -1,4 +1,5 @@
 using System.Reflection;
+using Nixill.Extensions.TwitchInteractionsLib.Internal;
 using Nixill.Extensions.TwitchInteractionsLib.PopExtension;
 using Nixill.Twitch.Interactions.Attributes;
 
@@ -181,8 +182,8 @@ public static class Deserializers
   ///   within <see langword="public"/> types are considered. All others
   ///   are ignored.
   /// </remarks>
-  /// <param name="t">The assembly.</param>
-  /// <returns>The result of deserialization.</returns>
+  /// <param name="asm">The assembly.</param>
+  /// <returns>The result of registration.</returns>
   public static DeserializerRegistrationResult RegisterDeserializers(Assembly asm)
   {
     List<Deserializer> successes = [];
@@ -214,24 +215,12 @@ public static class Deserializers
     List<Deserializer> successes = [];
     List<FailedDeserializer> failures = [];
 
-    foreach (MethodInfo m in t.GetMethods(BindingFlags.Public | BindingFlags.Static))
+    foreach (MethodInfo m in t.GetMethods(BindingFlags.Public | BindingFlags.Static)
+      .Where(m => m.GetCustomAttribute<DeserializerAttribute>() is not null))
     {
-      var result = RegisterDeserializers(t);
-
       try
       {
-        var pars = m.GetParameters();
-        if (pars.Length != 2)
-          throw new IllegalDeserializerException(m, $"It must have exactly two parameters. (Actual: {pars.Length})");
-        if (pars[0].ParameterType != typeof(IList<string>))
-          throw new IllegalDeserializerException(m,
-            $"Its first parameter must be an IList<string>. (Actual: {pars[0].ParameterType})");
-        if (pars[1].ParameterType != typeof(bool))
-          throw new IllegalDeserializerException(m,
-            $"Its second parameter must be a bool. (Actual: {pars[1].ParameterType})");
-
-        var del = m.CreateDelegate<Func<IList<string>, bool, object>>();
-        DeserializerList[m.ReturnType] = del;
+        Func<IList<string>, bool, object> del = RegisterDeserializer(m);
         successes.Add(new(m.ReturnType, del));
       }
       catch (IllegalDeserializerException ex)
@@ -242,6 +231,52 @@ public static class Deserializers
 
     return new DeserializerRegistrationResult(successes, failures);
   }
+
+  /// <summary>
+  ///   Attempts to register a single deserializer method.
+  /// </summary>
+  /// <param name="m">The method.</param>
+  /// <returns>The deserializer.</returns>
+  /// <exception cref="IllegalDeserializerException">
+  ///   The method is not a valid deserializer method.
+  /// </exception>
+  private static Func<IList<string>, bool, object> RegisterDeserializer(MethodInfo m)
+  {
+    if (!m.IsPublic)
+      throw new IllegalDeserializerException(m,
+        $"Only public methods may be deserializers. (Actual: {m.GetVisibility()})");
+
+    if (!m.IsStatic)
+      throw new IllegalDeserializerException(m, "Only static methods may be deserializers.");
+
+    if (m.GetCustomAttribute<DeserializerAttribute>() is null)
+      throw new IllegalDeserializerException(m, "Only methods tagged with [Deserializer] may be deserializers.");
+
+    var pars = m.GetParameters();
+    if (pars.Length != 2)
+      throw new IllegalDeserializerException(m, $"It must have exactly two parameters. (Actual: {pars.Length})");
+    if (pars[0].ParameterType != typeof(IList<string>))
+      throw new IllegalDeserializerException(m,
+        $"Its first parameter must be an IList<string>. (Actual: {pars[0].ParameterType})");
+    if (pars[1].ParameterType != typeof(bool))
+      throw new IllegalDeserializerException(m,
+        $"Its second parameter must be a bool. (Actual: {pars[1].ParameterType})");
+
+    var del = m.CreateDelegate<Func<IList<string>, bool, object>>();
+    DeserializerList[m.ReturnType] = del;
+    return del;
+  }
+
+  /// <summary>
+  ///   Returns whether the given type represents an automatically
+  ///   constructible enumerable type, and therefore must be the final
+  ///   parameter of a command or redemption instead of a preceding
+  ///   parameter.
+  /// </summary>
+  /// <param name="type">The type in question.</param>
+  /// <returns>See above.</returns>
+  public static bool IsEnumerableType(Type type)
+    => type.IsArray || (type.IsConstructedGenericType && type.GetGenericTypeDefinition() == typeof(IEnumerable<>));
 }
 
 /// <summary>

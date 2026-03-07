@@ -7,12 +7,6 @@ namespace Nixill.Twitch.Interactions.Attributes;
 ///   twitch chat bot.
 /// </summary>
 /// <remarks>
-///   Multiple commands cannot have the same name. If you attempt to add
-///   multiple commands of the same name, the newer overrides the older.
-///   However, one command can have a name that starts with another
-///   command's name. The more specific name takes priority for matches,
-///   but the less specific name is still accessible.
-///   <para/>
 ///   The tagged method must be <see langword="static"/> and <see langword="public"/>.
 ///   It must have at least one parameter, and its first parameter must be
 ///   a <see cref="CommandContext"/> or a less derived type. All other

@@ -4,9 +4,8 @@ public readonly record struct InteractionParameter(
   string Name,
   Type Type,
   bool IsLongText,
-  bool IsVararg,
   bool IsOptional,
-  object DefaultValue
+  object? DefaultValue
 )
 {
   public object Deserialize(IList<string> input) => Deserializers.Deserialize(Type, input, IsLongText);

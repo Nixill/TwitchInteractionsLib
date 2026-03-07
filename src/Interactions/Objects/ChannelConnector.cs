@@ -2,6 +2,7 @@ using System.Reflection;
 using Nixill.Twitch.Interactions.Attributes;
 using Nixill.Twitch.Interactions.Objects.Commands;
 using TwitchLib.Api;
+using TwitchLib.Api.Helix.Models.Channels.GetChannelInformation;
 using TwitchLib.EventSub.Websockets;
 
 namespace Nixill.Twitch.Interactions.Objects;
@@ -118,6 +119,36 @@ public class ChannelConnector(EventSubWebsocketClient eventSub, string appToken,
 
     Commands = new(prefixOptions, this);
 
+    EventSubClient.ChannelChatMessage += Commands.CheckChatMessage;
+
     return Commands;
+  }
+
+  /// <summary>
+  ///   Get or set: The cached channel information.
+  /// </summary>
+  ChannelInformation? ChannelInfo;
+
+  /// <summary>
+  ///   Get or set: The time at which the channel information was last
+  ///   updated.
+  /// </summary>
+  DateTime ChannelInfoUpdated = DateTime.MinValue;
+
+  /// <summary>
+  ///   Gets the channel information, updating it if the cache is stale or
+  ///   nonexistant.
+  /// </summary>
+  /// <returns>The channel information.</returns>
+  internal async Task<ChannelInformation> GetChannelInformation()
+  {
+    if (ChannelInfo is null || DateTime.UtcNow > (ChannelInfoUpdated + TimeSpan.FromHours(1)))
+    {
+      ChannelInfo = (await APIClient.Helix.Channels.GetChannelInformationAsync(StreamerUID))
+        .Data.First();
+      ChannelInfoUpdated = DateTime.UtcNow;
+    }
+
+    return ChannelInfo;
   }
 }

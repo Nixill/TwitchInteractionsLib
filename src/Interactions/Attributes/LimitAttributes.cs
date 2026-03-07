@@ -60,28 +60,32 @@ public abstract class LimitAttribute(int order) : Attribute
   ///   Determines whether or not a limit passes.
   /// </summary>
   /// <param name="ctx">The execution context.</param>
-  /// <param name="info">The streamer's channel information.</param>
+  /// <param name="ctor">
+  ///   The channel connector for which the limit's being checked.
+  /// </param>
   /// <returns>
   ///   <see langword="null"/> if the limit does not apply to the given
   ///   execution context, <see langword="true"/> if the limit passes, or
   ///   <see langword="false"/> if the limit does not pass.
   /// </returns>
-  public async Task<bool?> PassesCondition(InteractionContext ctx, ChannelInformation info)
+  public async Task<bool?> PassesCondition(InteractionContext ctx, ChannelConnector ctor)
   {
     if (!AppliesTo.HasFlag(ctx.LimitedAs)) return null;
-    return await ConditionCheck(ctx, info) != Invert;
+    return await ConditionCheck(ctx, ctor) != Invert;
   }
 
   /// <summary>
   ///   Determines whether or not a limit passes.
   /// </summary>
   /// <param name="ctx">The execution context.</param>
-  /// <param name="info">The streamer's channel information.</param>
+  /// <param name="ctor">
+  ///   The channel connector for which the limit's being checked.
+  /// </param>
   /// <returns>
   ///   <see langword="true"/> if the limit passes, or <see langword="false"/>
   ///   if the limit does not pass.
   /// </returns>
-  protected abstract Task<bool> ConditionCheck(InteractionContext ctx, ChannelInformation info);
+  protected abstract Task<bool> ConditionCheck(InteractionContext ctx, ChannelConnector ctor);
 }
 
 /// <summary>
