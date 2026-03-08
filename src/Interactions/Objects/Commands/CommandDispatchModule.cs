@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Reflection;
 using Nixill.Extensions.TwitchInteractionsLib.Internal;
 using Nixill.Extensions.TwitchInteractionsLib.WhereNotExtension;
@@ -177,7 +178,8 @@ public class CommandDispatchModule
       Aliases: attr.Aliases,
       Parameters: [.. iPars],
       Restrictions: [.. method.GetCustomAttributes<LimitAttribute>()],
-      Method: method
+      Method: method,
+      AllowCrossChannel: attr.AllowCrossChannel
     );
 
     LongestCommandName = Math.Max(LongestCommandName,
@@ -267,12 +269,12 @@ public class CommandDispatchModule
 
       if (CodeCommands.TryGetValue(commandName, out var cmd))
       {
-        await DispatchCodeCommand(commandParamWords, ev, commandName, cmd);
+        await DispatchCodeCommand(commandParamWords, ev, commandName, cmd, prefix);
         return;
       }
       else if (SimpleCommands.TryGetValue(commandName, out var scmd))
       {
-        await DispatchSimpleCommand(scmd, ev);
+        await DispatchSimpleCommand(scmd, ev, commandName);
         return;
       }
 
@@ -283,15 +285,144 @@ public class CommandDispatchModule
   }
 
   internal async Task DispatchCodeCommand(List<string> paramWords, ChannelChatMessage ev, string commandName,
-    ChatCommand cmd)
+    ChatCommand cmd, string prefix)
   {
     CommandContext ctx = new(ev, this);
     bool allowed = true;
     string? failMessage = null;
 
+    // check cross-channel privileges
+    if (ev.SourceMessageId is not null && !cmd.AllowCrossChannel)
+    {
+      return;
+    }
+
     foreach (var limit in cmd.Restrictions)
     {
       bool? result = await limit.PassesCondition(ctx, Connector);
+      if (result == true)
+      {
+        allowed = true;
+        failMessage = null;
+        if (limit.StopOnAllow) break;
+      }
+      else if (result == false)
+      {
+        allowed = false;
+        failMessage = limit.FailWarning;
+        if (limit.StopOnDeny) break;
+      }
+    }
+
+    if (!allowed)
+    {
+      if (failMessage != null) await ctx.ReplyAsync(failMessage, !cmd.AllowCrossChannel);
+      return;
+    }
+
+    List<object?> pars = [ctx];
+
+    try
+    {
+      foreach (var par in cmd.Parameters)
+      {
+        if (Deserializers.IsEnumerableType(par.Type) || paramWords.Count > 0)
+        {
+          pars.Add(par.Deserialize(paramWords));
+        }
+        else if (par.IsOptional)
+        {
+          pars.Add(par.DefaultValue);
+        }
+        else
+        {
+          throw new NoValueException(par.Name);
+        }
+      }
+
+      if (cmd.Method.ReturnType == typeof(Task))
+      {
+        await (Task)cmd.Method.Invoke(null, [.. pars])!;
+      }
+      else if (cmd.Method.ReturnType == typeof(Task<InteractionResponse>))
+      {
+        InteractionResponse response = await (Task<InteractionResponse>)cmd.Method.Invoke(null, [.. pars])!;
+
+        if (response.ReplyMessage is not null)
+        {
+          await ctx.ReplyAsync(response.ReplyMessage, !cmd.AllowCrossChannel);
+        }
+      }
+    }
+    catch (NoValueException)
+    {
+      string usage = $"Usage: {prefix}{commandName}{string.Join("", cmd.Parameters
+        .Select(p => Deserializers.IsEnumerableType(p.Type) ? $" [{p.Name} ...]" : p.IsOptional ? $" [{p.Name}]" : $" <{p.Name}>"))}";
+      await ctx.ReplyAsync(usage, true);
+    }
+    catch (TargetInvocationException ex) when (ex.InnerException is NoValueException)
+    {
+      string usage = $"Usage: {prefix}{commandName}{string.Join("", cmd.Parameters
+        .Select(p => Deserializers.IsEnumerableType(p.Type) ? $" [{p.Name} ...]" : p.IsOptional ? $" [{p.Name}]" : $" <{p.Name}>"))}";
+      await ctx.ReplyAsync(usage, true);
+    }
+    catch (UserInputException ex)
+    {
+      await ctx.ReplyAsync($"Error: {ex.Message}", true);
+    }
+    catch (TargetInvocationException e) when (e.InnerException is UserInputException ex)
+    {
+      await ctx.ReplyAsync($"Error: {ex.Message}", true);
+    }
+    catch (InvalidDeserializeException ex)
+    {
+      string error = $"Error: {ex.Value} is not a valid {ex.HumanReadableType}"
+        + ((ex.CustomMessage != null) ? $" {ex.CustomMessage}." : ".");
+      await ctx.ReplyAsync(error, true);
+    }
+    catch (TargetInvocationException e) when (e.InnerException is InvalidDeserializeException ex)
+    {
+      string error = $"Error: {ex.Value} is not a valid {ex.HumanReadableType}"
+        + ((ex.CustomMessage != null) ? $" {ex.CustomMessage}." : ".");
+      await ctx.ReplyAsync(error, true);
+    }
+    catch (TargetInvocationException ex)
+    {
+      await ctx.ReplyAsync($"Error: {ex.InnerException?.GetType().Name}: {ex.InnerException?.Message}", true);
+    }
+    catch (Exception ex)
+    {
+      await ctx.ReplyAsync($"Error: {ex.GetType().Name}: {ex.Message}");
+    }
+  }
+
+  internal async Task DispatchSimpleCommand(SimpleCommand scmd, ChannelChatMessage? ev, string nameUsed)
+  {
+    if (scmd.RequireTitle)
+    {
+      string streamTitle = (await Connector.GetChannelInformation()).Title;
+      if (!PrefixOptions.Any(p => streamTitle.Contains($"{p}{nameUsed}", StringComparison.InvariantCultureIgnoreCase))) return;
+    }
+
+    if (scmd.RequireTag)
+    {
+      string[] tags = (await Connector.GetChannelInformation()).Tags;
+      string tagName = nameUsed.Replace(" ", "");
+      if (!tags.Any(t => t.Equals(tagName, StringComparison.InvariantCultureIgnoreCase))) return;
+    }
+
+    if (scmd.RequireModerator && ev is not null)
+    {
+      if (!ev.Badges.Any(b => b.SetId == "moderator" || b.SetId == "lead_moderator" || b.SetId == "broadcaster")) return;
+    }
+
+    if (ev is not null)
+    {
+      await SendChatMessage(scmd.Response, true, ev.MessageId);
+    }
+    else
+    {
+      await SendChatMessage(scmd.Response, true);
     }
   }
 

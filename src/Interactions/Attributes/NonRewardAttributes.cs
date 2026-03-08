@@ -35,6 +35,20 @@ public class CommandAttribute(string name, params string[] aliases) : Attribute
   public readonly string Name = name;
 
   /// <summary>
+  ///   Get or init: Whether or not cross-channel commands are allowed in
+  ///   a shared chat. If <see cref="true"/>, the app will respond to the
+  ///   command when it is sent from other chats. If <see cref="false"/>,
+  ///   the app will only respond if the command was sent from the app's
+  ///   authenticated chat.
+  /// </summary>
+  /// <remarks>
+  ///   This also controls whether the bot responds across chats when
+  ///   using the return value of the command method, even if the command
+  ///   was used locally.
+  /// </remarks>
+  public bool AllowCrossChannel { get; init; } = false;
+
+  /// <summary>
   ///   Get: Aliases of the command, without the command prefix.
   /// </summary>
   public readonly string[] Aliases = aliases;

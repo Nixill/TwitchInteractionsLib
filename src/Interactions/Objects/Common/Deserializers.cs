@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
 using Nixill.Extensions.TwitchInteractionsLib.Internal;
 using Nixill.Extensions.TwitchInteractionsLib.PopExtension;
@@ -46,7 +47,7 @@ public static class Deserializers
   public static bool CanDeserialize(Type type)
   {
     // IEnumerable<T>: Repeatedly deserialize T
-    if (type.IsConstructedGenericType && (type.GetGenericTypeDefinition() == typeof(IEnumerable<>)
+    if (type.IsConstructedGenericType && (type.GetGenericTypeDefinition().IsAssignableFrom(typeof(List<>))
       || type.GetGenericTypeDefinition() == typeof(Nullable<>)))
     {
       return CanDeserialize(type.GenericTypeArguments[0]);
@@ -105,10 +106,10 @@ public static class Deserializers
   {
     if (input.Count == 0) throw new NoValueException("(unknown parameter)");
 
-    // IEnumerable<T>: Repeatedly deserialize T
-    if (type.IsConstructedGenericType && type.GetGenericTypeDefinition() == typeof(IEnumerable<>))
+    // List<T> or its base types: Repeatedly deserialize T
+    if (type.IsConstructedGenericType && type.GetGenericTypeDefinition().IsAssignableFrom(typeof(List<>)))
     {
-      return DeserializeEnumerable(type.GenericTypeArguments[0], input).ToArray();
+      return ArrayDeserializer.CastListToType(DeserializeEnumerable(type.GenericTypeArguments[0], input).ToList(), type);
     }
 
     // T[]: Repeatedly deserialize T
@@ -170,7 +171,28 @@ public static class Deserializers
   {
     while (input.Count > 0)
     {
-      yield return Deserialize(type, input, false);
+      if (TryDeserialize(type, input, out object? obj))
+      {
+        yield return obj;
+      }
+      else
+      {
+        yield break;
+      }
+    }
+  }
+
+  static bool TryDeserialize(Type type, IList<string> input, [NotNullWhen(true)] out object? obj)
+  {
+    try
+    {
+      obj = Deserialize(type, input, false);
+      return true;
+    }
+    catch (NoValueException)
+    {
+      obj = null;
+      return false;
     }
   }
 
@@ -276,7 +298,7 @@ public static class Deserializers
   /// <param name="type">The type in question.</param>
   /// <returns>See above.</returns>
   public static bool IsEnumerableType(Type type)
-    => type.IsArray || (type.IsConstructedGenericType && type.GetGenericTypeDefinition() == typeof(IEnumerable<>));
+    => type.IsArray || type.GetGenericTypeDefinition().IsAssignableFrom(typeof(List<>));
 }
 
 /// <summary>
@@ -320,3 +342,30 @@ public readonly record struct DeserializerRegistrationResult(
   IEnumerable<Deserializer> Successes,
   IEnumerable<FailedDeserializer> Failures
 );
+
+public static class ArrayDeserializer
+{
+  public static object CastArrayToType(object[] array, Type type)
+  {
+    MethodInfo getMethod = typeof(ArrayDeserializer).GetMethod("GetArrayInType")!;
+    MethodInfo conMethod = getMethod.MakeGenericMethod(type);
+    return conMethod.Invoke(null, [array])!;
+  }
+
+  public static T[] GetArrayInType<T>(object[] array)
+  {
+    return [.. array.Cast<T>()];
+  }
+
+  public static object CastListToType(List<object> array, Type type)
+  {
+    MethodInfo getMethod = typeof(ArrayDeserializer).GetMethod("GetArrayInType")!;
+    MethodInfo conMethod = getMethod.MakeGenericMethod(type);
+    return conMethod.Invoke(null, [array])!;
+  }
+
+  public static List<T> GetListInType<T>(List<object> array)
+  {
+    return [.. array.Cast<T>()];
+  }
+}

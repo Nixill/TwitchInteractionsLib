@@ -144,7 +144,7 @@ public class ChannelConnector(EventSubWebsocketClient eventSub, string appToken,
   {
     if (ChannelInfo is null || DateTime.UtcNow > (ChannelInfoUpdated + TimeSpan.FromHours(1)))
     {
-      ChannelInfo = (await APIClient.Helix.Channels.GetChannelInformationAsync(StreamerUID))
+      ChannelInfo = (await APIClient.Helix.Channels.GetChannelInformationAsync(StreamerUID, AppToken))
         .Data.First();
       ChannelInfoUpdated = DateTime.UtcNow;
     }

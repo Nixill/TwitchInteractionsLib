@@ -14,12 +14,18 @@ namespace Nixill.Twitch.Interactions.Objects.Commands;
 /// <param name="Method">
 ///   The method that is tagged with this command.
 /// </param>
+/// <param name="AllowCrossChannel">
+///   If <see langword="true"/>, cross-channel commands are allowed in a
+///   shared chat. If <see langword="false"/>, the command is only
+///   recognized in the authenticated chat.
+/// </param>
 public readonly record struct ChatCommand(
   string Name,
   string[] Aliases,
   InteractionParameter[] Parameters,
   LimitAttribute[] Restrictions,
-  MethodInfo Method
+  MethodInfo Method,
+  bool AllowCrossChannel
 );
 
 /// <summary>

@@ -52,7 +52,7 @@ public abstract class InteractionContext
   /// </remarks>
   /// <param name="message">The message to send.</param>
   /// <returns>(Task, void.)</returns>
-  public abstract Task ReplyAsync(string message);
+  public abstract Task ReplyAsync(string message, bool sourceOnly = true);
 
   /// <summary>
   ///   Sends a message in response to the interaction, without using any
@@ -65,7 +65,7 @@ public abstract class InteractionContext
   /// </remarks>
   /// <param name="message">The message to send.</param>
   /// <returns>(Task, void.)</returns>
-  public abstract Task MessageAsync(string message);
+  public abstract Task MessageAsync(string message, bool sourceOnly = true);
 
   /// <summary>
   ///   Signals that an interaction succeeded.
@@ -120,9 +120,11 @@ public class CommandContext(ChannelChatMessage msg, CommandDispatchModule module
   /// <returns>(Task, void.)</returns>
   public override Task FailAsync() => Task.CompletedTask;
 
-  public override Task MessageAsync(string message) => CommandDispatchModule.SendChatMessage(message);
+  public override Task MessageAsync(string message, bool sourceOnly = true)
+    => CommandDispatchModule.SendChatMessage(message, sourceOnly: sourceOnly);
 
-  public override Task ReplyAsync(string message) => CommandDispatchModule.SendChatMessage(message, inReplyTo: ChatMessage.MessageId);
+  public override Task ReplyAsync(string message, bool sourceOnly = true)
+    => CommandDispatchModule.SendChatMessage(message, sourceOnly: sourceOnly, inReplyTo: ChatMessage.MessageId);
 
   /// <summary>
   ///   Does nothing.
