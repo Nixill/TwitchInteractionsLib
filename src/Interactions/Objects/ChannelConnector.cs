@@ -36,6 +36,14 @@ public class ChannelConnector(EventSubWebsocketClient eventSub, string appToken,
   internal static readonly TwitchAPI APIClient = new();
 
   /// <summary>
+  ///   Sets the client ID used internally by this library's Twitch API
+  ///   client.
+  /// </summary>
+  /// <param name="id">The client ID.</param>
+  public static void SetClientID(string id)
+    => APIClient.Settings.ClientId = id;
+
+  /// <summary>
   ///   Get: The EventSub websocket client used by this ChannelConnector.
   /// </summary>
   internal readonly EventSubWebsocketClient EventSubClient = eventSub;
@@ -78,6 +86,15 @@ public class ChannelConnector(EventSubWebsocketClient eventSub, string appToken,
   /// </summary>
   /// <param name="newToken">The new token to use.</param>
   public void UpdateStreamerToken(string newToken) => StreamerToken = newToken;
+
+  /// <summary>
+  ///   Removes this ChannelConnector's event handlers from the
+  ///   <see cref="EventSubWebsocketClient"/>.
+  /// </summary>
+  public void RemoveEventHandlers()
+  {
+    if (Commands is not null) EventSubClient.ChannelChatMessage -= Commands.CheckChatMessage;
+  }
 
   /// <summary>
   ///   Enables chat command support for this ChannelConnector, creating a
