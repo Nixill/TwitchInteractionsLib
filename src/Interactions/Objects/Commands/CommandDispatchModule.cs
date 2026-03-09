@@ -183,7 +183,7 @@ public class CommandDispatchModule
     );
 
     LongestCommandName = Math.Max(LongestCommandName,
-      attr.Aliases.Prepend(attr.Name).Max(x => x.Count(c => c == ' ' + 1)));
+      attr.Aliases.Prepend(attr.Name).Max(x => x.Count(c => c == ' ') + 1));
 
     CodeCommands[attr.Name] = command;
 
